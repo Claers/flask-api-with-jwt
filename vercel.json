@@ -1,8 +1,14 @@
 {
-  "rewrites": [
+  "builds": [
     {
-      "source": "/(.*)",
-      "destination": "/api/app"
+      "src": "wsgi.py",
+      "use": "@ardnt/vercel-python-wsgi"
+    }
+  ],
+  "routes": [
+    {
+      "src": "/(.*)",
+      "dest": "/wsgi.py"
     }
   ]
 }
