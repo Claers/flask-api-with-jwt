@@ -244,4 +244,4 @@ app.config["JWT_EXPIRATION_DELTA"] = timedelta(seconds=1800)
 
 
 # jwt = JWT(app, karaoke_list_auth, identity)
-# app.run()
+app.run()
