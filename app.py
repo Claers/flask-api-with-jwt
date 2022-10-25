@@ -17,16 +17,9 @@ CORS(app)
 app.config["CORS_HEADERS"] = "Content-Type"
 CORS(app, resources={r"/*": {"origins": "*"}})
 
-# conn = psycopg2.connect(
-#     host=os.getenv("FLASK_DB_HOST"),
-#     database=os.getenv("FLASK_DB_NAME"),
-#     user=os.getenv("FLASK_DB_USER"),
-#     password=os.getenv("FLASK_DB_PASSWORD"),
-# )
 
-conn = psycopg2.connect(
-    "postgres://jrxoxfma:eAmJkoO40Cxxj22NrWVt38FrW2Wu4G6n@lucky.db.elephantsql.com/jrxoxfma"
-)
+conn = psycopg2.connect(os.environ.get("FLASK_DB_URI", ""))
+
 conn.autocommit = True
 db = conn.cursor()
 
@@ -85,29 +78,6 @@ def jwt_decode(jwt_token, leeway=0):
     )
 
 
-@app.get("/api/karaoke_list/musics")
-def karaoke_list_get():
-    db.execute(
-        """SELECT name, serie, artist, language, vocal, category, id  FROM musics"""
-    )
-    data = db.fetchall()
-    results = list(
-        map(
-            lambda r: {
-                "name": r[0],
-                "serie": r[1],
-                "artist": r[2],
-                "language": r[3],
-                "vocal": r[4],
-                "category": r[5],
-                "id": r[6],
-            },
-            data,
-        )
-    )
-    return jsonify(results)
-
-
 music_default_dict = {
     "name": "",
     "serie": "",
@@ -141,14 +111,7 @@ def create_music(data):
     )
 
 
-@app.post("/api/karaoke_list/musics")
-def karaoke_list_post():
-    if not request.get_json(force=True):
-        return (
-            jsonify({"error": "No data provided"}),
-            status.HTTP_400_BAD_REQUEST,
-        )
-    json = request.get_json(force=True)
+def check_auth_error(json):
     if not json["jwt_token"]:
         return (
             jsonify({"error": "Authentication needed."}),
@@ -159,6 +122,49 @@ def karaoke_list_post():
             jsonify({"error": "User is not authentified."}),
             status.HTTP_401_UNAUTHORIZED,
         )
+    return None
+
+
+# Routes
+
+# GET
+@app.get("/api/karaoke_list/musics")
+def karaoke_list_get():
+    db.execute(
+        """SELECT name, serie, artist, language, vocal, category, id  FROM musics"""
+    )
+    data = db.fetchall()
+    results = list(
+        map(
+            lambda r: {
+                "name": r[0],
+                "serie": r[1],
+                "artist": r[2],
+                "language": r[3],
+                "vocal": r[4],
+                "category": r[5],
+                "id": r[6],
+            },
+            data,
+        )
+    )
+    return jsonify(results)
+
+
+# POST
+
+
+@app.post("/api/karaoke_list/musics")
+def karaoke_list_post():
+    if not request.get_json(force=True):
+        return (
+            jsonify({"error": "No data provided"}),
+            status.HTTP_400_BAD_REQUEST,
+        )
+    json = request.get_json(force=True)
+    auth_error = check_auth_error(json)
+    if auth_error:
+        return auth_error
     if json.get("data", False):
         data: dict = json["data"]
         try:
@@ -180,11 +186,30 @@ def karaoke_list_post():
                 )
         return jsonify({"success": "Musics created successfully"})
     else:
-        return {}
-        # return (
-        #     jsonify({"error": "No data provided"}),
-        #     status.HTTP_400_BAD_REQUEST,
-        # )
+        return (
+            jsonify({"error": "No data provided"}),
+            status.HTTP_400_BAD_REQUEST,
+        )
+
+
+@app.post("/api/karaoke_list/delete")
+def karaoke_list_delete():
+    if not request.get_json(force=True):
+        return (
+            jsonify({"error": "No data provided"}),
+            status.HTTP_400_BAD_REQUEST,
+        )
+    json = request.get_json(force=True)
+    auth_error = check_auth_error(json)
+    if auth_error:
+        return auth_error
+    if not json.get("id"):
+        return (
+            jsonify({"error": "No id provided"}),
+            status.HTTP_400_BAD_REQUEST,
+        )
+    else:
+        db.execute("""DELETE FROM musics WHERE id = %s""", (json["id"]))
 
 
 @app.post("/api/karaoke_list/auth")
@@ -243,6 +268,5 @@ app.config["JWT_AUTH_URL_RULE"] = "/api/karaoke_list/auth"
 app.config["JWT_EXPIRATION_DELTA"] = timedelta(seconds=1800)
 
 
-# jwt = JWT(app, karaoke_list_auth, identity)
 if __name__ == "__main__":
     app.run(host="0.0.0.0")
