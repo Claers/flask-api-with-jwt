@@ -4,7 +4,6 @@ from flask_api import status
 import psycopg2
 import os
 from dotenv import load_dotenv
-from flask_jwt import JWT, jwt_required, current_identity
 import jwt
 from flask_cors import CORS, cross_origin
 from datetime import datetime, timedelta, timezone
